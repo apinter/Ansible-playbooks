@@ -1,0 +1,61 @@
+---
+- name: Update/Deploy nebula mesh network
+  hosts: "{{ target_hosts}}"
+  become: true
+  gather_facts: true
+  tasks:
+  - name: Download nebula
+    ansible.builtin.get_url:
+      url: "{{ nebula_src_url }}"
+      dest: /tmp/
+      mode: '0644'
+
+  - name: Download nebula systemd unit
+    ansible.builtin.get_url:
+      url: "{{ nebula_unit_url }}"
+      dest: /etc/systemd/system/nebula.service
+      mode: '0644'
+
+  - name: Extract nebula
+    ansible.builtin.unarchive:
+      src: /tmp/nebula-linux-amd64.tar.gz
+      dest: /tmp/nebula
+
+  - name: Install nebula
+    ansible.builtin.shell: |
+        cd /tmp/nebula && install -D -p -m 0644 nebula /usr/local/bin/nebula
+
+  - name: Create config folders
+    ansible.builtin.file:
+      path: /etc/nebula
+      owner: root
+      group: root
+      mode: '0644'
+
+  - name: Install nebula configuration
+    ansible.builtin.copy:
+      src: ./config/{{ inventory_hostname }}config.yml
+      dest: /etc/nebula
+      owner: root
+      group: root
+      mode: '0600'
+
+  - name: Install certificates
+    ansible.builtin.copy:
+      src: ./config/{{ item }}
+      dest: /etc/nebula/
+      owner: root
+      group: root
+      mode: '0600'
+    with_items:
+      - ca.crt
+      - "{{ inventory_hostname }}.crt"
+      - "{{ inventory_hostname }}.key"
+
+  - name: Enable nebula
+    ansible.builtin.systemd:
+      name: nebula
+      daemon_reload: true
+      state: started
+      enabled: true
+ 
