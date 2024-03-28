@@ -1,0 +1,51 @@
+---
+- name: Set Gnome background and screenshots location
+  ansible.builtin.shell: |
+    gsettings set org.gnome.desktop.background picture-options none
+    gsettings set org.gnome.desktop.background primary-color '#404040'
+    gsettings set org.gnome.desktop.background color-shading-type 'solid'
+    gsettings set org.gnome.gnome-screenshot auto-save-directory 'file:///home/apinter/Media/Pictures/Screenshots/'
+  become: yes
+  become_user: apinter
+  ignore_errors: yes
+
+- name: Copy mount unit
+  ansible.builtin.copy:
+    src: home-apinter-Media.mount
+    dest: /etc/systemd/system/
+    owner: root
+    mode: '0644'
+
+- name: Enable mount unit
+  ansible.builtin.systemd:
+    enabled: true
+    daemon_reload: yes
+    name: home-apinter-Media.mount
+
+- name: Install homebrew
+  ansible.builtin.shell: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  become: yes
+  become_user: apinter
+
+- name: Copy flatpak update unit and timer
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /home/apinter/.config/systemd/user/
+    owner: apinter
+    mode: '0744'
+  become: yes
+  become_user: apinter
+  loop:
+    - update-user-flatpaks.service
+    - update-user-flatpaks.timer
+
+- name: Enable flatpak update timer
+  ansible.builtin.systemd:
+    enabled: true
+    daemon_reload: yes
+    name: update-user-flatpaks.timer
+    scope: user 
+  become: yes
+  become_user: apinter
+
+- include_tasks: install_packages.yml
